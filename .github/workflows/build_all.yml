@@ -28,7 +28,7 @@ jobs:
         path: minecraft-launcher-server/bin/publish/
 
   build-client:
-    runs-on: windows-2019
+    runs-on: windows-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v3
@@ -54,7 +54,8 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          name: minecraft-launcher-client   
+          name: minecraft-launcher-client
+          path: public
       - uses: actions/download-artifact@v3
         with:
           name: minecraft-launcher-server
@@ -70,4 +71,4 @@ jobs:
       - name: Upload files
         env:
           SSHPASS: ${{secrets.SSH_PASSWORD}}
-        run: sshpass -e rsync --archive --compress --verbose --stats -e ssh . ${{secrets.SSH_DESTINATION}} 2>&1 | grep -v debug1
+        run: sshpass -e rsync --archive --compress --verbose --stats --mkpath -e ssh . ${{secrets.SSH_DESTINATION}} 2>&1 | grep -v debug1

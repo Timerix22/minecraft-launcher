@@ -10,6 +10,8 @@ global using DTLib.Extensions;
 global using DTLib.Filesystem;
 global using DTLib.Logging;
 global using DTLib.Network;
+using System.Diagnostics;
+using DTLib.Ben.Demystifier;
 using Timer = DTLib.Timer;
 
 namespace launcher_server;
@@ -26,7 +28,7 @@ static class Server
 
     static void Main(string[] args)
     {
-        Timer? manifestsUpdateTimer = null;
+        Timer? updateCheckTimer = null;
         try
         {
             Console.Title = "minecraft_launcher_server";
@@ -35,14 +37,17 @@ static class Server
 
             Config = ServerConfig.LoadOrCreateDefault();
             
+            CheckUpdates();
+            updateCheckTimer = new Timer(true, 5 * 60 * 1000, CheckUpdates);
+            updateCheckTimer.Start();
+            
+            
             logger.LogInfo("Main",  $"local address: {Config.LocalIp}");
             logger.LogInfo("Main", $"public address: {Functions.GetPublicIP()}");
                 logger.LogInfo("Main", $"port: {Config.LocalPort}");
             mainSocket.Bind(new IPEndPoint(IPAddress.Parse(Config.LocalIp), Config.LocalPort));
             mainSocket.Listen(1000);
-            Manifests.CreateAllManifests();
-            manifestsUpdateTimer = new Timer(true, 5 * 60 * 1000, Manifests.CreateAllManifests);
-            manifestsUpdateTimer.Start();
+            
             logger.LogInfo("Main", "server started succesfully");
             // запуск отдельного потока для каждого юзера
             logger.LogInfo("Main", "waiting for users");
@@ -58,10 +63,41 @@ static class Server
             logger.LogError("Main", ex);
             mainSocket.Close();
         }
-        manifestsUpdateTimer?.Stop();
         Console.ResetColor();
     }
 
+    static void CheckUpdates()
+    {
+        IOPath updatesDir = "updates";
+        Directory.Create(updatesDir);
+        var updatedFiles = Directory.GetAllFiles(updatesDir);
+        foreach (var updatedFilePath in updatedFiles)
+        {
+            try
+            {
+                var relativeFilePath = updatedFilePath.RemoveBase(updatesDir);
+                if (relativeFilePath.Str is "minecraft-launcher-server" or "minecraft-launcher-server.exe")
+                {
+                    logger.LogWarn(nameof(CheckUpdates), "program update found, restarting...");
+                    string exeFile = relativeFilePath.Str;
+                    string exeFileNew = exeFile + "_new";
+                    File.Move(relativeFilePath, exeFileNew, true);
+                    if(Environment.OSVersion.Platform == PlatformID.Win32NT)
+                        Process.Start("cmd",$"/c move {exeFileNew} {exeFile} && {exeFile}");
+                    else Process.Start("bash",$"-c 'mv {exeFileNew} {exeFile}'");
+                    Environment.Exit(0);
+                }
+                else File.Move(updatedFilePath, relativeFilePath, true);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(nameof(CheckUpdates), $"failed update of file '{updatedFilePath}'\n"
+                    + e.ToStringDemystified());
+            }
+        }
+        Manifests.CreateAllManifests();
+    }
+    
     // запускается для каждого юзера в отдельном потоке
     static void HandleUser(Socket handlerSocket)
     {
