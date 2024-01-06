@@ -54,7 +54,19 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          name: assets
+          name: minecraft-launcher-client   
+      - uses: actions/download-artifact@v3
+        with:
+          name: minecraft-launcher-server
+        
+      - name: Prepare ssh
+        env:
+          SSH_FINGERPRINT: ${{secrets.SSH_FINGERPRINT}}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_FINGERPRINT" >> ~/.ssh/known_hosts
+        shell: bash
+        
       - name: Upload files
         env:
           SSHPASS: ${{secrets.SSH_PASSWORD}}
