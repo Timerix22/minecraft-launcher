@@ -46,3 +46,17 @@ jobs:
       with:
         name: minecraft-launcher-client
         path: minecraft-launcher-client/bin/publish/
+
+  deploy-to-server:
+    needs: [ build-server, build-client ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: assets
+      - name: Upload files
+        env:
+          SSHPASS: ${{secrets.SSH_PASSWORD}}
+        run: sshpass -e rsync --archive --compress --verbose --stats -e ssh . ${{secrets.SSH_DESTINATION}} 2>&1 | grep 
+-v debug1
