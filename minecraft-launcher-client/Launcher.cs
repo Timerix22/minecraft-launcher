@@ -174,6 +174,7 @@ internal static partial class Launcher
             Console.ReadKey();
         }
         Console.CursorVisible = true;
+        Console.ResetColor();
     }
 
     private static void RenderTab(string tab, ushort bufferHeight = 30)

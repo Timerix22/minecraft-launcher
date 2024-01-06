@@ -10,6 +10,7 @@ global using DTLib.Extensions;
 global using DTLib.Filesystem;
 global using DTLib.Logging;
 global using DTLib.Network;
+using Timer = DTLib.Timer;
 
 namespace launcher_server;
 
@@ -25,6 +26,7 @@ static class Server
 
     static void Main(string[] args)
     {
+        Timer? manifestsUpdateTimer = null;
         try
         {
             Console.Title = "minecraft_launcher_server";
@@ -39,6 +41,8 @@ static class Server
             mainSocket.Bind(new IPEndPoint(IPAddress.Parse(Config.LocalIp), Config.LocalPort));
             mainSocket.Listen(1000);
             Manifests.CreateAllManifests();
+            manifestsUpdateTimer = new Timer(true, 5 * 60 * 1000, Manifests.CreateAllManifests);
+            manifestsUpdateTimer.Start();
             logger.LogInfo("Main", "server started succesfully");
             // запуск отдельного потока для каждого юзера
             logger.LogInfo("Main", "waiting for users");
@@ -54,7 +58,8 @@ static class Server
             logger.LogError("Main", ex);
             mainSocket.Close();
         }
-        logger.LogInfo("Main",  "");
+        manifestsUpdateTimer?.Stop();
+        Console.ResetColor();
     }
 
     // запускается для каждого юзера в отдельном потоке
