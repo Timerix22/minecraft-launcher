@@ -2,7 +2,7 @@
 
 public class ServerConfig
 {
-    public static IOPath ConfigFilePath = "minecraft-launcher.dtsod";
+    public static IOPath ConfigFilePath = "minecraft-launcher-server.dtsod";
     
     public int LocalPort = 25000;
     public string LocalIp = "127.0.0.1";
