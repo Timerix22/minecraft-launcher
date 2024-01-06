@@ -38,7 +38,8 @@ static class Server
             Config = ServerConfig.LoadOrCreateDefault();
             
             CheckUpdates();
-            updateCheckTimer = new Timer(true, 5 * 60 * 1000, CheckUpdates);
+            // check for updates every minute
+            updateCheckTimer = new Timer(true, 60 * 1000, CheckUpdates);
             updateCheckTimer.Start();
             
             
@@ -89,7 +90,9 @@ static class Server
                         File.Move(exeFileNew, exeFile, true);
                     Environment.Exit(0);
                 }
-                else File.Move(updatedFilePath, relativeFilePath, true);
+                
+                logger.LogDebug(nameof(CheckUpdates), "updating file "+relativeFilePath);
+                File.Move(updatedFilePath, relativeFilePath, true);
             }
             catch (Exception e)
             {
@@ -97,9 +100,12 @@ static class Server
                     + e.ToStringDemystified());
             }
         }
-        logger.LogInfo(nameof(CheckUpdates), "creating manifests...");
-        Manifests.CreateAllManifests();
-        logger.LogInfo(nameof(CheckUpdates), "manifests created");
+        if(updatedFiles.Count != 0)
+        {
+            logger.LogInfo(nameof(CheckUpdates), "creating manifests...");
+            Manifests.CreateAllManifests();
+            logger.LogInfo(nameof(CheckUpdates), "manifests created");
+        }
         logger.LogInfo(nameof(CheckUpdates), "update check completed");
     }
     
