@@ -133,7 +133,7 @@ internal static partial class Launcher
                                 Directory.GetCurrent());
                             Logger.LogDebug("LaunchGame", gameOptions);
                             var gameProcess = Process.Start(Config.JavaPath.Str, gameOptions);
-                            gameProcess.WaitForExit();
+                            gameProcess?.WaitForExit();
                             Logger.LogInfo("Main", "minecraft closed");
                         }
                         break;
@@ -243,7 +243,8 @@ internal static partial class Launcher
     
     public static string NameUUIDFromBytes(byte[] input)
     {
-        byte[] hash = MD5.HashData(input);
+        var md5 = MD5.Create();
+        byte[] hash = md5.ComputeHash(input);
         hash[6] &= 0x0f;
         hash[6] |= 0x30;
         hash[8] &= 0x3f;
