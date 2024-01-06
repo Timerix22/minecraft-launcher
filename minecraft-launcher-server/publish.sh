@@ -1,10 +1,7 @@
-dotnet publish -c release -o bin/publish \
-  --self-contained \
-  --use-current-runtime \
+dotnet publish -c Release -o bin/publish \
   -p:PublishSingleFile=true \
   -p:PublishTrimmed=true \
   -p:TrimMode=partial \
   -p:EnableCompressionInSingleFile=true \
-  -p:OptimizationPreference=Size \
   -p:InvariantGlobalization=true \
-  -p:DebugType=none
+  -p:DebugType=embedded
