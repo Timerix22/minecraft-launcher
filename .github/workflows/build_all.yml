@@ -63,6 +63,7 @@ jobs:
         env:
           SSH_FINGERPRINT: ${{secrets.SSH_FINGERPRINT}}
         run: |
+          mkdir -p ~/.ssh
           echo "$SSH_FINGERPRINT" >> ~/.ssh/known_hosts
         shell: bash
         
