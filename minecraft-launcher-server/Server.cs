@@ -83,7 +83,7 @@ static class Server
                     logger.LogWarn(nameof(CheckUpdates), "program update found, restarting...");
                     string exeFile = relativeFilePath.Str;
                     string exeFileNew = exeFile + "_new";
-                    File.Move(relativeFilePath, exeFileNew, true);
+                    File.Move(updatedFilePath, exeFileNew, true);
                     if(Environment.OSVersion.Platform == PlatformID.Win32NT)
                         Process.Start("cmd",$"/c move {exeFileNew} {exeFile} && {exeFile}");
                     else 
