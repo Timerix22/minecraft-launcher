@@ -38,8 +38,8 @@ static class Server
             Config = ServerConfig.LoadOrCreateDefault();
             
             CheckUpdates();
-            // check for updates every minute
-            updateCheckTimer = new Timer(true, 60 * 1000, CheckUpdates);
+            // check for updates every 5 minutes
+            updateCheckTimer = new Timer(true, 5*60 * 1000, CheckUpdates);
             updateCheckTimer.Start();
             
             
@@ -69,10 +69,12 @@ static class Server
 
     static void CheckUpdates()
     {
-        logger.LogInfo(nameof(CheckUpdates), "checking for updates...");
+        logger.LogDebug(nameof(CheckUpdates), "checking for updates...");
         IOPath updatesDir = "updates";
         Directory.Create(updatesDir);
         var updatedFiles = Directory.GetAllFiles(updatesDir);
+        if(updatedFiles.Count != 0)
+            logger.LogInfo(nameof(CheckUpdates), $"updated files found in '{updatesDir}'");
         foreach (var updatedFilePath in updatedFiles)
         {
             try
@@ -106,7 +108,7 @@ static class Server
             Manifests.CreateAllManifests();
             logger.LogInfo(nameof(CheckUpdates), "manifests created");
         }
-        logger.LogInfo(nameof(CheckUpdates), "update check completed");
+        logger.LogDebug(nameof(CheckUpdates), "update check completed");
     }
     
     // запускается для каждого юзера в отдельном потоке
