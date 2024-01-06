@@ -9,7 +9,7 @@ namespace launcher_server;
 
 public static class Manifests
 {
-    static object manifestLocker = new();
+    public static object manifestLocker = new();
 
     public static void CreateManifest(IOPath dir)
     {

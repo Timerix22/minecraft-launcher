@@ -40,9 +40,8 @@ internal static partial class Launcher
 #endif
             if (args.Contains("offline")) offline = true;
             if (args.Contains("updated")) updated = true;
-            Config = !File.Exists(LauncherConfig.ConfigFilePath)
-                ? LauncherConfig.CreateDefault()
-                : LauncherConfig.LoadFromFile();
+
+            Config = LauncherConfig.LoadOrCreateDefault();
             
             Logger.DebugLogEnabled = debug;
             Logger.LogInfo("Main", "launcher is starting");

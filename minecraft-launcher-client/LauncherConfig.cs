@@ -28,7 +28,8 @@ public class LauncherConfig
         Username = dtsod["username"];
     }
 
-    public static LauncherConfig LoadFromFile() => new(new DtsodV23(File.ReadAllText(ConfigFilePath)));
+    private static LauncherConfig LoadFromFile() => 
+        new(new DtsodV23(File.ReadAllText(ConfigFilePath)));
 
     public DtsodV23 ToDtsod() =>
         new()
@@ -42,15 +43,18 @@ public class LauncherConfig
             { "username", Username },
         };
 
-    public void Save()
-    {
+    public void Save() => 
         File.WriteAllText(ConfigFilePath, ToDtsod().ToString());
-    }
-    
-    public static LauncherConfig CreateDefault()
+
+    private static LauncherConfig CreateDefault()
     {
         var c = new LauncherConfig();
         c.Save();
         return c;
     }
+    
+    public static LauncherConfig LoadOrCreateDefault() =>
+        File.Exists(ConfigFilePath)
+            ? LoadFromFile()
+            : CreateDefault();
 }

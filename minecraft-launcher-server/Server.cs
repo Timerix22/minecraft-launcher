@@ -1,13 +1,15 @@
-﻿using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using DTLib.Dtsod;
-using DTLib.Extensions;
-using DTLib.Filesystem;
-using DTLib.Logging;
-using DTLib.Network;
+﻿global using System;
+global using System.Collections.Generic;
+global using System.Net;
+global using System.Net.Sockets;
+global using System.Text;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using DTLib.Dtsod;
+global using DTLib.Extensions;
+global using DTLib.Filesystem;
+global using DTLib.Logging;
+global using DTLib.Network;
 
 namespace launcher_server;
 
@@ -17,7 +19,7 @@ static class Server
         new FileLogger("logs","launcher-server"),
         new ConsoleLogger());
     static readonly Socket mainSocket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-    static DtsodV23 config = null!;
+    static ServerConfig Config = null!;
     public static readonly IOPath shared_dir = "public";
 
 
@@ -28,13 +30,13 @@ static class Server
             Console.Title = "minecraft_launcher_server";
             Console.InputEncoding = Encoding.Unicode;
             Console.OutputEncoding = Encoding.Unicode;
+
+            Config = ServerConfig.LoadOrCreateDefault();
             
-            config = new DtsodV23(File.ReadAllText("minecraft-launcher-server.dtsod"));
-            
-            logger.LogInfo("Main",  $"local address: {config["local_ip"]}");
+            logger.LogInfo("Main",  $"local address: {Config.LocalIp}");
             logger.LogInfo("Main", $"public address: {Functions.GetPublicIP()}");
-                logger.LogInfo("Main", $"port: {config["local_port"]}");
-            mainSocket.Bind(new IPEndPoint(IPAddress.Parse(config["local_ip"]), config["local_port"]));
+                logger.LogInfo("Main", $"port: {Config.LocalPort}");
+            mainSocket.Bind(new IPEndPoint(IPAddress.Parse(Config.LocalIp), Config.LocalPort));
             mainSocket.Listen(1000);
             Manifests.CreateAllManifests();
             logger.LogInfo("Main", "server started succesfully");
@@ -85,10 +87,15 @@ static class Server
                                 fsp.UploadFile(Path.Concat(shared_dir, "minecraft-launcher.exe"));
                                 break;
                             case "requesting file download":
-                                var file = handlerSocket.GetPackage().BytesToString();
-                                logger.LogInfo(nameof(HandleUser), $"updater requested file {file}");
+                                var filePath = handlerSocket.GetPackage().BytesToString();
+                                logger.LogInfo(nameof(HandleUser), $"updater requested file {filePath}");
+                                if(filePath.EndsWith("manifest.dtsod"))
+                                    lock (Manifests.manifestLocker)
+                                    {
+                                        fsp.UploadFile(Path.Concat(shared_dir, filePath));
+                                    }
                                 // ReSharper disable once InconsistentlySynchronizedField
-                                fsp.UploadFile(Path.Concat(shared_dir, file));
+                                else fsp.UploadFile(Path.Concat(shared_dir, filePath));
                                 break;
                             default:
                                 throw new Exception("unknown request: " + request);
