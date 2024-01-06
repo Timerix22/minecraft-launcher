@@ -54,7 +54,11 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          name: assets
+          name: minecraft-launcher-client   
+      - uses: actions/download-artifact@v3
+        with:
+          name: minecraft-launcher-server
+        
       - name: Upload files
         env:
           SSHPASS: ${{secrets.SSH_PASSWORD}}
