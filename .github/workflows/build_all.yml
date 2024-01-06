@@ -59,6 +59,9 @@ jobs:
         with:
           name: minecraft-launcher-server
         
+      - name: Prepare ssh
+        run: echo "${{secrets.SSH_FINGERPRINT}}" >> ~/.ssh/known_hosts
+        
       - name: Upload files
         env:
           SSHPASS: ${{secrets.SSH_PASSWORD}}
