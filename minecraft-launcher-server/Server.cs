@@ -68,6 +68,7 @@ static class Server
 
     static void CheckUpdates()
     {
+        logger.LogInfo(nameof(CheckUpdates), "checking for updates...");
         IOPath updatesDir = "updates";
         Directory.Create(updatesDir);
         var updatedFiles = Directory.GetAllFiles(updatesDir);
@@ -84,7 +85,8 @@ static class Server
                     File.Move(relativeFilePath, exeFileNew, true);
                     if(Environment.OSVersion.Platform == PlatformID.Win32NT)
                         Process.Start("cmd",$"/c move {exeFileNew} {exeFile} && {exeFile}");
-                    else Process.Start("bash",$"-c 'mv {exeFileNew} {exeFile}'");
+                    else 
+                        File.Move(exeFileNew, exeFile, true);
                     Environment.Exit(0);
                 }
                 else File.Move(updatedFilePath, relativeFilePath, true);
@@ -95,7 +97,10 @@ static class Server
                     + e.ToStringDemystified());
             }
         }
+        logger.LogInfo(nameof(CheckUpdates), "creating manifests...");
         Manifests.CreateAllManifests();
+        logger.LogInfo(nameof(CheckUpdates), "manifests created");
+        logger.LogInfo(nameof(CheckUpdates), "update check completed");
     }
     
     // запускается для каждого юзера в отдельном потоке
