@@ -1,0 +1,16 @@
+window:
+{
+	type: "container";
+	anchor: [0us, 0us];
+	width: 90us;
+	height: 30us;
+	children:
+	{
+		test_label:
+		{
+			type: "label";
+			anchor: [0us, 0us];
+			resdir: "gui";
+		};
+	};
+};

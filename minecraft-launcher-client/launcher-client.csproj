@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>launcher_client</RootNamespace>
+        <AssemblyName>minecraft-launcher</AssemblyName>
+        <ApplicationIcon>launcher.ico</ApplicationIcon>
+    </PropertyGroup>
+    <ItemGroup>
+      <None Remove="gui\exit.gui" />
+      <EmbeddedResource Include="gui\**" />
+    </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="DTLib.Dtsod" Version="1.3.1" />
+      <PackageReference Include="DTLib.Logging" Version="1.3.1" />
+      <PackageReference Include="DTLib.Network" Version="1.3.3" />
+    </ItemGroup>
+</Project>

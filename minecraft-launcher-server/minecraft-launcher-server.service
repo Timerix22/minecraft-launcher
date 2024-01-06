@@ -1,0 +1,11 @@
+# put this file in /etc/systemd/system/
+[Unit]
+Description=minecraft launcher backend in c#
+
+[Service]
+WorkingDirectory=/opt/minecraft-launcher/minecraft-launcher-server/bin/publish
+ExecStart=/opt/minecraft-launcher/minecraft-launcher-server/bin/publish/minecraft-launcher-server
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+# Build results
+[Bb]in/
+.bin/
+[Dd]ebug/
+[Rr]elease/
+[Rr]eleases/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+[Pp]ublish/
+
+# IDE files
+.vs/
+.vscode/
+.vshistory/
+.idea/
+.editorconfig
+*.user
+
+#backups
+.old*/
