@@ -55,21 +55,28 @@ public class Network
         var manifestPath = Path.Concat(dirOnServer, "manifest.dtsod");
         Logger.LogDebug(nameof(Network), manifestPath);
         string manifestContent = Fsp.DownloadFileToMemory(manifestPath).BytesToString();
+        Logger.LogDebug(nameof(Network), manifestContent);
         var manifest = new DtsodV23(manifestContent);
         var hasher = new Hasher();
         foreach (var fileOnServerData in manifest)
         {
             IOPath fileOnClient = Path.Concat(dirOnClient, fileOnServerData.Key);
             if (!File.Exists(fileOnClient) || (overwrite && hasher.HashFile(fileOnClient).HashToString() != fileOnServerData.Value))
+            {
+                Logger.LogDebug(nameof(Network), $"downloading {fileOnClient}");
                 Fsp.DownloadFile(Path.Concat(dirOnServer, fileOnServerData.Key), fileOnClient);
+            }
         }
         // удаление лишних файлов
         if (delete_excess)
         {
             foreach (var file in Directory.GetAllFiles(dirOnClient))
             {
-                if (!manifest.ContainsKey(file.RemoveBase(dirOnClient).Str.Replace('\\','/'))) 
+                if (!manifest.ContainsKey(file.RemoveBase(dirOnClient).Str.Replace('\\','/')))
+                {
+                    Logger.LogDebug(nameof(Network), $"deleting {file}");
                     File.Delete(file);
+                }
             }
         }
     }

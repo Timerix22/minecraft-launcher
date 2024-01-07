@@ -24,11 +24,9 @@ static class Server
     static readonly Socket mainSocket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
     static ServerConfig Config = null!;
     public static readonly IOPath shared_dir = "public";
-
-
+    
     static void Main(string[] args)
     {
-        Timer? updateCheckTimer = null;
         try
         {
             Console.Title = "minecraft_launcher_server";
@@ -39,7 +37,7 @@ static class Server
             
             CheckUpdates();
             // check for updates every 5 minutes
-            updateCheckTimer = new Timer(true, 5*60 * 1000, CheckUpdates);
+            var updateCheckTimer = new Timer(true, 5*60 * 1000, CheckUpdates);
             updateCheckTimer.Start();
             
             
