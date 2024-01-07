@@ -35,6 +35,7 @@ static class Server
 
             Config = ServerConfig.LoadOrCreateDefault();
             
+            Manifests.CreateAllManifests();
             CheckUpdates();
             // check for updates every 5 minutes
             var updateCheckTimer = new Timer(true, 5*60 * 1000, CheckUpdates);
