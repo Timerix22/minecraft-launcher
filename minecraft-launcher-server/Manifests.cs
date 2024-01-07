@@ -1,8 +1,5 @@
 ﻿using System.Linq;
-using System.Text;
-using DTLib;
-using DTLib.Extensions;
-using DTLib.Filesystem;
+using DTLib.XXHash;
 using static launcher_server.Server;
 
 namespace launcher_server;
@@ -20,7 +17,6 @@ public static class Manifests
         }
         
         StringBuilder manifestBuilder = new();
-        Hasher hasher = new();
         var manifestPath = Path.Concat(dir, "manifest.dtsod");
         if (Directory.GetFiles(dir).Contains(manifestPath))
             File.Delete(manifestPath);
@@ -29,8 +25,11 @@ public static class Manifests
             var fileRelative = fileInDir.RemoveBase(dir);
             manifestBuilder.Append(fileRelative);
             manifestBuilder.Append(": \"");
-            byte[] hash = hasher.HashFile(Path.Concat(fileInDir));
-            manifestBuilder.Append(hash.HashToString());
+            var fileStream = File.OpenRead(fileInDir);
+            ulong hash = xxHash64.ComputeHash(fileStream);
+            fileStream.Close();
+            string hashStr = BitConverter.GetBytes(hash).HashToString();
+            manifestBuilder.Append(hashStr);
             manifestBuilder.Append("\";\n");
         }
         File.WriteAllText(manifestPath, manifestBuilder.ToString().Replace('\\','/'));
@@ -59,7 +58,7 @@ public static class Manifests
             }
             dirlist_content_builder
                 .Append("\t\"")
-                .Append(dirs[dirs.Length-1].RemoveBase(sync_and_remove_dir).Str.Replace('\\','/'))
+                .Append(dirs[^1].RemoveBase(sync_and_remove_dir).Str.Replace('\\','/'))
                 .Append("\"\n");
 
             dirlist_content_builder.Append("];");

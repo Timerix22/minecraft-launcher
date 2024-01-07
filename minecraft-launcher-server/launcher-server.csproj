@@ -12,8 +12,9 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="DTLib.Dtsod" Version="1.3.3" />
-    <PackageReference Include="DTLib.Logging" Version="1.3.3" />
-    <PackageReference Include="DTLib.Network" Version="1.4.1" />
+    <PackageReference Include="DTLib.Dtsod" Version="1.3.4" />
+    <PackageReference Include="DTLib.Logging" Version="1.3.4" />
+    <PackageReference Include="DTLib.Network" Version="1.4.2" />
+    <PackageReference Include="DTLib.XXHash" Version="1.0.0" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using DTLib;
@@ -7,6 +8,7 @@ using DTLib.Extensions;
 using DTLib.Filesystem;
 using DTLib.Logging;
 using DTLib.Network;
+using DTLib.XXHash;
 using static launcher_client.Launcher;
 
 namespace launcher_client;
@@ -57,14 +59,25 @@ public class Network
         string manifestContent = Fsp.DownloadFileToMemory(manifestPath).BytesToString();
         Logger.LogDebug(nameof(Network), manifestContent);
         var manifest = new DtsodV23(manifestContent);
-        var hasher = new Hasher();
         foreach (var fileOnServerData in manifest)
         {
             IOPath fileOnClient = Path.Concat(dirOnClient, fileOnServerData.Key);
-            if (!File.Exists(fileOnClient) || (overwrite && hasher.HashFile(fileOnClient).HashToString() != fileOnServerData.Value))
+            if (!File.Exists(fileOnClient))
             {
                 Logger.LogDebug(nameof(Network), $"downloading {fileOnClient}");
                 Fsp.DownloadFile(Path.Concat(dirOnServer, fileOnServerData.Key), fileOnClient);
+            }
+            else if (overwrite)
+            {
+                var fileStream = File.OpenRead(fileOnClient);
+                ulong hash = xxHash64.ComputeHash(fileStream);
+                fileStream.Close();
+                string hashStr = BitConverter.GetBytes(hash).HashToString();
+                if (hashStr != fileOnServerData.Value)
+                {
+                    Logger.LogDebug(nameof(Network), $"downloading {fileOnClient} (hash {hashStr} != {fileOnServerData.Value})");
+                    Fsp.DownloadFile(Path.Concat(dirOnServer, fileOnServerData.Key), fileOnClient);
+                }
             }
         }
         // удаление лишних файлов
