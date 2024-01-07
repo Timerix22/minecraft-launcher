@@ -8,10 +8,10 @@ public class LauncherConfig
     public static IOPath ConfigFilePath = "minecraft-launcher.dtsod";
     
     public int GameMemory = 3000;
-    public int GameWindowHeight = 500;
+    public int GameWindowHeight = 600;
     public int GameWindowWidth = 900;
-    public IOPath JavaPath = "jre/bin/java.exe";
-    public string ServerAddress = "127.0.0.1";
+    public IOPath JavaPath = "jre/bin/javaw.exe";
+    public string ServerAddress = "185.117.155.226";
     public int ServerPort = 25000;
     public string Username = "";
     
