@@ -13,11 +13,11 @@ static class Updates
         var updatedFiles = Directory.GetAllFiles(updatesDir);
         if(updatedFiles.Count != 0) Server.Logger.LogInfo(nameof(Check), $"updated files found in '{updatesDir}'");
 
-        foreach (var f in updatedFiles)
+        foreach (var updatedFilePath in updatedFiles)
         {
-            if(f.Str is "minecraft-launcher-server" or "minecraft-launcher-server.exe")
-                SelfUpdate(updatesDir, f);
-            return;
+            var relativeFilePath = updatedFilePath.RemoveBase(updatesDir);
+            if(relativeFilePath.Str is "minecraft-launcher-server" or "minecraft-launcher-server.exe")
+                SelfUpdate(updatedFilePath, relativeFilePath);
         }
         
         foreach (var updatedFilePath in updatedFiles)
@@ -57,11 +57,11 @@ static class Updates
         File.Move(updatedFilePath, Server.LatestLauncherVersionFile, true);
     }
 
-    public static void SelfUpdate(IOPath updatesDir, IOPath exeFile)
+    public static void SelfUpdate(IOPath updatedFile, IOPath exeFile)
     {
         Server.Logger.LogWarn(nameof(SelfUpdate), "program update found, restarting...");
         IOPath exeFileNew = exeFile + "_new";
-        File.Move(Path.Concat(updatesDir, exeFile), exeFileNew, true);
+        File.Move(updatedFile, exeFileNew, true);
         if(Environment.OSVersion.Platform == PlatformID.Win32NT)
             Process.Start("cmd",$"/c move {exeFileNew} {exeFile} && {exeFile}");
         else 
