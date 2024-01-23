@@ -37,10 +37,10 @@ static class Server
             Config = ServerConfig.LoadOrCreateDefault();
             LatestLauncherVersion = File.ReadAllText(LatestLauncherVersionFile);
             
+            Updates.Check();
             Logger.LogInfo(nameof(Main), "creating manifests...");
             Manifests.CreateAllManifests();
             Logger.LogInfo(nameof(Main), "manifests created");
-            Updates.Check();
             // check for updates every minute
             var updateCheckTimer = new Timer(true, 60 * 1000, Updates.Check);
             updateCheckTimer.Start();
