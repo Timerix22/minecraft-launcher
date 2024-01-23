@@ -78,8 +78,8 @@ public class NetworkManager
             mainSocket.SendPackage("requesting latest launcher version");
             var answer = mainSocket.GetPackage().BytesToString();
             if (!answer.StartsWith("latest launcher version is ") ||
-                Version.TryParse(answer.Substring(27), out Version latestVersion))
-                throw new Exception($"unexpected server answer: {answer}");
+                !Version.TryParse(answer.Substring(28), out Version latestVersion))
+                throw new Exception($"unexpected server answer: '{answer}'");
 
             Version currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
             Logger.LogDebug(nameof(NetworkManager),
