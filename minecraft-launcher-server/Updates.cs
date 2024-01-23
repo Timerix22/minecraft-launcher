@@ -25,12 +25,8 @@ static class Updates
             try
             {
                 var relativeFilePath = updatedFilePath.RemoveBase(updatesDir);
-                if (relativeFilePath.Str == "launcher_version.txt")
-                {
-                    Server.LatestLauncherVersion = File.ReadAllText(updatedFilePath);
-                    Server.Logger.LogInfo(nameof(Check), "new launcher version: " + Server.LatestLauncherVersion);
-                    File.Move(updatedFilePath, Server.LatestLauncherVersionFile, true);
-                }
+                if (relativeFilePath == Path.Concat(Server.shared_dir, "launcher_version.txt"))
+                    UpdateLauncherVersion(updatedFilePath);
                 else
                 {
                     Server.Logger.LogInfo(nameof(Check), "updating file " + relativeFilePath);
@@ -53,7 +49,14 @@ static class Updates
 
         Server.Logger.LogDebug(nameof(Check), "update check completed");
     }
-    
+
+    private static void UpdateLauncherVersion(IOPath updatedFilePath)
+    {
+        Server.LatestLauncherVersion = File.ReadAllText(updatedFilePath);
+        Server.Logger.LogInfo(nameof(Check), "new launcher version: " + Server.LatestLauncherVersion);
+        File.Move(updatedFilePath, Server.LatestLauncherVersionFile, true);
+    }
+
     public static void SelfUpdate(IOPath updatesDir, IOPath exeFile)
     {
         Server.Logger.LogWarn(nameof(SelfUpdate), "program update found, restarting...");
