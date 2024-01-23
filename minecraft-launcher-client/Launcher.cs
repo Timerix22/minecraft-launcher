@@ -1,237 +1,167 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Dynamic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using DTLib.Console;
-using DTLib.Extensions;
 using DTLib.Logging;
-using DTLib.Network;
 using DTLib.Filesystem;
-using Directory = DTLib.Filesystem.Directory;
-using File = DTLib.Filesystem.File;
-using static launcher_client.Network;
+
 namespace launcher_client;
 
 internal static partial class Launcher
 {
-    private static FileLogger _fileLogger = new("launcher-logs", "launcher-client");
-    public static ILogger Logger = new CompositeLogger(
-        _fileLogger,
-        new ConsoleLogger());
-    public static LauncherConfig Config = null!;
-    public static bool debug, offline, updated;
-    private static dynamic tabs = new ExpandoObject();
-
+    public static bool Debug, Offline, Updated;
+    
     private static void Main(string[] args)
     {
+        // console arguments parsing
+#if  DEBUG
+        Debug = true;
+#else
+        if (args.Contains("debug"))
+            Debug = true;
+#endif
+        if (args.Contains("offline"))
+            Offline = true;
+        if (args.Contains("updated"))
+            Updated = true;
+        
+        // console initialization
+        Console.Title = "anarx_2";
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.InputEncoding = Encoding.UTF8;
+        using ConsoleWrapper console = new ConsoleWrapper();
+        console.StartUpdating();
+        
+        // logger initialization
+        FileLogger fileLogger = new FileLogger("launcher-logs", "launcher-client");
+        ConsoleWrapperLogger consoleWrapperLogger = new ConsoleWrapperLogger(console);
+        ILogger Logger = new CompositeLogger(
+            fileLogger, 
+            consoleWrapperLogger
+        );
+        Logger.DebugLogEnabled = true; // always print debug log to file
+        consoleWrapperLogger.DebugLogEnabled = Debug; 
+        
         try
         {
-            Console.Title = "anarx_2";
-            Console.OutputEncoding = Encoding.UTF8;
-            Console.InputEncoding = Encoding.UTF8;
-            Console.CursorVisible = false;
-
-#if  DEBUG
-            debug = true;
-#else
-            if (args.Contains("debug")) debug = true;
-#endif
-            if (args.Contains("offline")) offline = true;
-            if (args.Contains("updated")) updated = true;
-
-            Config = LauncherConfig.LoadOrCreateDefault();
+            var config = LauncherConfig.LoadOrCreateDefault();
+            NetworkManager networkManager = new NetworkManager(Logger, config.ServerAddress, config.ServerPort);
             
-            Logger.DebugLogEnabled = debug;
-            Logger.LogInfo("Main", "launcher is starting");
+            Logger.LogInfo(nameof(Main), "launcher started");
             
             if(File.Exists("minecraft-launcher.exe_old"))
                 File.Delete("minecraft-launcher.exe_old");
             
-            // обновление лаунчера
-            if (!updated && !offline)
+            // self-update
+            if (!Updated && !Offline)
             {
-                ConnectToLauncherServer();
-                mainSocket.SendPackage("requesting launcher update");
-                Fsp.DownloadFile("minecraft-launcher.exe_new");
-                Logger.LogInfo("Main", "minecraft-launcher.exe_new downloaded");
-                System.IO.File.Move("minecraft-launcher.exe", "minecraft-launcher.exe_old");
-                Process.Start("cmd","/c " +
-                            "move minecraft-launcher.exe_new minecraft-launcher.exe && " +
-                            "minecraft-launcher.exe updated");
-                return;
+                Logger.LogInfo(nameof(Main), "checking for launcher update");
+                networkManager.ConnectToLauncherServer();
+                bool updateDownloaded = networkManager.TryDownloadLauncherUpdate("minecraft-launcher.exe_new");
+                if(updateDownloaded)
+                {
+                    System.IO.File.Move("minecraft-launcher.exe", "minecraft-launcher.exe_old");
+                    Process.Start("cmd", "/c " +
+                                         "move minecraft-launcher.exe_new minecraft-launcher.exe && " +
+                                         "minecraft-launcher.exe updated");
+                    return;
+                }
+                networkManager.DisconnectFromLauncherServer();
             }
 
             // если уже обновлён
-            tabs.Login = EmbeddedResources.ReadText("launcher_client.gui.login.gui");
-            tabs.Settings = EmbeddedResources.ReadText("launcher_client.gui.settings.gui");
-            tabs.Exit = EmbeddedResources.ReadText("launcher_client.gui.exit.gui");
-            tabs.Log = "";
-            tabs.Current = "";
-            string username = "";
-            if (!Config.Username.IsNullOrEmpty())
-            {
-                tabs.Login = tabs.Login.Remove(833, Config.Username.Length).Insert(833, Config.Username);
-                username = Config.Username;
-            }
 
-            RenderTab(tabs.Login);
+            console.SetHeader($"username: {config.Username} | game memory: {config.GameMemory}M");
+            console.SetFooter("[L] launch game | [N] change username | [H] help");
+            console.DrawGui();
 
-            while (true) try
-                    // ReSharper disable once BadChildStatementIndent
+            while (true)
             {
-                var pressedKey = Console.ReadKey(true); // Считывание ввода
-                switch (pressedKey.Key)
+                try
                 {
-                    case ConsoleKey.F1:
-                        RenderTab(tabs.Login);
-                        break;
-                    case ConsoleKey.N:
-                        if (tabs.Current == tabs.Login)
-                        {
-                            tabs.Login = tabs.Login
-                                .Remove(751, 20).Insert(751, "┏━━━━━━━━━━━━━━━━━━┓")
-                                .Remove(831, 20).Insert(831, "┃                  ┃")
-                                .Remove(911, 20).Insert(911, "┗━━━━━━━━━━━━━━━━━━┛");
-                            RenderTab(tabs.Login);
-                            var _username = ReadString(33, 10, 15);
-                            tabs.Login = tabs.Login
-                                .Remove(751, 20).Insert(751, "┌──────────────────┐")
-                                .Remove(831, 20).Insert(831, "│                  │")
-                                .Remove(911, 20).Insert(911, "└──────────────────┘");
-                            RenderTab(tabs.Login);
-                            if (_username.Length < 5)
-                                throw new Exception("username length should be > 4 and < 17");
-                            Config.Username = _username;
-                            Config.Save();
-                            username = _username;
-                            tabs.Login = tabs.Login.Remove(833, _username.Length).Insert(833, _username);
-                            RenderTab(tabs.Login);
-                        }
-                        break;
-                    case ConsoleKey.L:
-                        if (tabs.Current == tabs.Login)
-                        {
-                            RenderTab(tabs.Current);
-                            if (username.Length < 2) throw new Exception("username is too short");
+                    var pressedKey = Console.ReadKey(true); // Считывание ввода
+                    switch (pressedKey.Key)
+                    {
+                        case ConsoleKey.UpArrow:
+                            console.ScrollUp();
+                            break;
+                        case ConsoleKey.DownArrow:
+                            console.ScrollDown();
+                            break;
+                        case ConsoleKey.PageUp:
+                            console.ScrollUp(console.TextAreaH);
+                            break;
+                        case ConsoleKey.PageDown:
+                            console.ScrollDown(console.TextAreaH);
+                            break;
+                        case ConsoleKey.N:
+                            // todo ReadLine wrapper
+                            Console.SetCursorPosition(0, Console.WindowHeight - 1);
+                            Console.CursorVisible = true;
+                            string? _username = Console.ReadLine();
                             
+                            if (_username == null || _username.Length < 2)
+                                throw new Exception("too short username");
+                            config.Username = _username;
+                            config.Save();
+                            
+                            console.DrawGui();
+                            break;
+                        case ConsoleKey.L:
+                            if (config.Username.Length < 2)
+                                throw new Exception("username is too short");
+
                             // обновление клиента
-                            if (!offline)
+                            if (!Offline)
                             {
-                                ConnectToLauncherServer();
-                                UpdateGame();
+                                networkManager.ConnectToLauncherServer();
+                                networkManager.UpdateGame();
                             }
 
                             // запуск майнкрафта
-                            Logger.LogInfo("Main", "launching minecraft");
-                            string gameOptions = ConstructGameLaunchArgs(Config.Username, 
-                                NameUUIDFromString("OfflinePlayer:" + Config.Username),
-                                Config.GameMemory, 
-                                Config.GameWindowWidth, 
-                                Config.GameWindowHeight,
+                            Logger.LogInfo(nameof(Main), "launching minecraft");
+                            string gameOptions = ConstructGameLaunchArgs(config.Username,
+                                NameUUIDFromString("OfflinePlayer:" + config.Username),
+                                config.GameMemory,
+                                config.GameWindowWidth,
+                                config.GameWindowHeight,
                                 Directory.GetCurrent());
                             Logger.LogDebug("LaunchGame", gameOptions);
-                            var gameProcess = Process.Start(Config.JavaPath.Str, gameOptions);
+                            var gameProcess = Process.Start(config.JavaPath.Str, gameOptions);
                             gameProcess?.WaitForExit();
-                            Logger.LogInfo("Main", "minecraft closed");
-                        }
-                        break;
-                    case ConsoleKey.F2:
-                        tabs.Log = File.ReadAllText(_fileLogger.LogfileName);
-                        RenderTab(tabs.Log, 9999);
-                        break;
-                    case ConsoleKey.F3:
-                        RenderTab(tabs.Settings);
-                        break;
-                    case ConsoleKey.F4:
-                        RenderTab(tabs.Exit);
-                        break;
-                    case ConsoleKey.Enter:
-                        if (tabs.Current == tabs.Exit)
-                        {
-                            Console.Clear();
-                            // Console.BufferHeight = 9999;
-                            return;
-                        }
-                        break;
-                    case ConsoleKey.F5:
-                        if (tabs.Current == tabs.Log) goto case ConsoleKey.F2;
-                        RenderTab(tabs.Current);
-                        Console.CursorVisible = false;
-                        break;
+                            Logger.LogInfo(nameof(Main), "minecraft closed");
+                            break;
+                        case ConsoleKey.H:
+                            console.WriteLine("help:");
+                            console.WriteLine("  Q: How to use this launcher?");
+                            console.WriteLine("  A: Set username if it isn't set and launch the game.");
+                            console.WriteLine("  Q: How to change game memory and other settings?");
+                            console.WriteLine("  A: Edit the `minecraft-launcher.dtsod` file.");
+                            console.WriteLine("  Q: How to disable game files update on launch?");
+                            console.WriteLine("  A: Restart the launcher with argument 'offline'.");
+                            console.WriteLine("  Q: What to do if launcher doesn't work?");
+                            console.WriteLine("  A: Send latest log file from `launcher-logs/` to Timerix.");
+                            break;
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError("Main", ex);
+                catch (Exception ex)
+                {
+                    Logger.LogError(nameof(Main), ex);
+                }
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError("Main", ex);
+            console.StopUpdating();
+            Logger.LogError(nameof(Main), ex);
             ColoredConsole.Write("gray", "press any key to close...");
             Console.ReadKey();
         }
-        Console.CursorVisible = true;
+        
         Console.ResetColor();
-    }
-
-    private static void RenderTab(string tab, ushort bufferHeight = 30)
-    {
-        tabs.Current = tab;
-        Console.Clear();
-        Console.SetWindowSize(80, 30);
-        // Console.SetBufferSize(80, bufferHeight);
-        ColoredConsole.Write("w", tab);
-    }
-
-    private static string ReadString(ushort x, ushort y, ushort maxlength)
-    {
-        var output = "";
-        tabs.Current = tabs.Current.Remove(y * 80 + x, maxlength).Insert(y * 80 + x, " ".Multiply(maxlength));
-        while (true)
-        {
-            var pressedKey = Console.ReadKey(false);
-            switch (pressedKey.Key)
-            {
-                case ConsoleKey.Enter:
-                    return output;
-                case ConsoleKey.Backspace:
-                    if (output.Length > 0)
-                    {
-                        output = output.Remove(output.Length - 1);
-                        RenderTab(tabs.Current);
-                        Console.SetCursorPosition(x, y);
-                        ColoredConsole.Write("c", output);
-                    }
-
-                    break;
-                case ConsoleKey.Escape:
-                    tabs.Current = tabs.Current.Remove(y * 80 + x, maxlength)
-                        .Insert(y * 80 + x, " ".Multiply(maxlength));
-                    RenderTab(tabs.Current);
-                    return "";
-                //case ConsoleKey.Spacebar:
-                case ConsoleKey.UpArrow:
-                case ConsoleKey.DownArrow:
-                case ConsoleKey.LeftArrow:
-                case ConsoleKey.RightArrow:
-                    break;
-                default:
-                    if (output.Length <= maxlength)
-                    {
-                        string keyC = pressedKey.KeyChar.ToString();
-                        string thisChar = pressedKey.Modifiers.HasFlag(ConsoleModifiers.Shift) ? keyC.ToUpper() : keyC;
-                        output += thisChar;
-                    }
-
-                    RenderTab(tabs.Current);
-                    Console.SetCursorPosition(x, y);
-                    ColoredConsole.Write("c", output);
-                    break;
-            }
-        }
     }
 
     //minecraft player uuid explanation

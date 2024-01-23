@@ -1,3 +1,4 @@
+#!/bin/bash
 dotnet publish -c release -o bin/publish \
   --self-contained \
   --use-current-runtime \

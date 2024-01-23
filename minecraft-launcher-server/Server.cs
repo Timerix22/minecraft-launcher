@@ -10,23 +10,24 @@ global using DTLib.Extensions;
 global using DTLib.Filesystem;
 global using DTLib.Logging;
 global using DTLib.Network;
-using System.Diagnostics;
-using DTLib.Ben.Demystifier;
 using Timer = DTLib.Timer;
 
 namespace launcher_server;
 
 static class Server
 {
-    private static ILogger logger = new CompositeLogger(
+    public static ILogger Logger = new CompositeLogger(
         new FileLogger("logs","launcher-server"),
         new ConsoleLogger());
-    static readonly Socket mainSocket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
     static ServerConfig Config = null!;
     public static readonly IOPath shared_dir = "public";
+
+    public static readonly IOPath LatestLauncherVersionFile = "launcher_version.txt";
+    public static string LatestLauncherVersion = "0.0.1";
     
     static void Main(string[] args)
     {
+        var mainSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         try
         {
             Console.Title = "minecraft_launcher_server";
@@ -34,23 +35,26 @@ static class Server
             Console.OutputEncoding = Encoding.Unicode;
 
             Config = ServerConfig.LoadOrCreateDefault();
+            LatestLauncherVersion = File.ReadAllText(LatestLauncherVersionFile);
             
+            Logger.LogInfo(nameof(Main), "creating manifests...");
             Manifests.CreateAllManifests();
-            CheckUpdates();
-            // check for updates every 5 minutes
-            var updateCheckTimer = new Timer(true, 5*60 * 1000, CheckUpdates);
+            Logger.LogInfo(nameof(Main), "manifests created");
+            Updates.Check();
+            // check for updates every minute
+            var updateCheckTimer = new Timer(true, 60 * 1000, Updates.Check);
             updateCheckTimer.Start();
             
             
-            logger.LogInfo("Main",  $"local address: {Config.LocalIp}");
-            logger.LogInfo("Main", $"public address: {Functions.GetPublicIP()}");
-                logger.LogInfo("Main", $"port: {Config.LocalPort}");
+            Logger.LogInfo("Main",  $"local address: {Config.LocalIp}");
+            Logger.LogInfo("Main", $"public address: {Functions.GetPublicIP()}");
+                Logger.LogInfo("Main", $"port: {Config.LocalPort}");
             mainSocket.Bind(new IPEndPoint(IPAddress.Parse(Config.LocalIp), Config.LocalPort));
             mainSocket.Listen(1000);
             
-            logger.LogInfo("Main", "server started succesfully");
+            Logger.LogInfo("Main", "server started succesfully");
             // запуск отдельного потока для каждого юзера
-            logger.LogInfo("Main", "waiting for users");
+            Logger.LogInfo("Main", "waiting for users");
             while (true)
             {
                 var userSocket = mainSocket.Accept();
@@ -60,60 +64,16 @@ static class Server
         }
         catch (Exception ex)
         {
-            logger.LogError("Main", ex);
+            Logger.LogError("Main", ex);
             mainSocket.Close();
         }
         Console.ResetColor();
     }
 
-    static void CheckUpdates()
-    {
-        logger.LogDebug(nameof(CheckUpdates), "checking for updates...");
-        IOPath updatesDir = "updates";
-        Directory.Create(updatesDir);
-        var updatedFiles = Directory.GetAllFiles(updatesDir);
-        if(updatedFiles.Count != 0)
-            logger.LogInfo(nameof(CheckUpdates), $"updated files found in '{updatesDir}'");
-        foreach (var updatedFilePath in updatedFiles)
-        {
-            try
-            {
-                var relativeFilePath = updatedFilePath.RemoveBase(updatesDir);
-                if (relativeFilePath.Str is "minecraft-launcher-server" or "minecraft-launcher-server.exe")
-                {
-                    logger.LogWarn(nameof(CheckUpdates), "program update found, restarting...");
-                    string exeFile = relativeFilePath.Str;
-                    string exeFileNew = exeFile + "_new";
-                    File.Move(updatedFilePath, exeFileNew, true);
-                    if(Environment.OSVersion.Platform == PlatformID.Win32NT)
-                        Process.Start("cmd",$"/c move {exeFileNew} {exeFile} && {exeFile}");
-                    else 
-                        File.Move(exeFileNew, exeFile, true);
-                    Environment.Exit(0);
-                }
-                
-                logger.LogDebug(nameof(CheckUpdates), "updating file "+relativeFilePath);
-                File.Move(updatedFilePath, relativeFilePath, true);
-            }
-            catch (Exception e)
-            {
-                logger.LogError(nameof(CheckUpdates), $"failed update of file '{updatedFilePath}'\n"
-                    + e.ToStringDemystified());
-            }
-        }
-        if(updatedFiles.Count != 0)
-        {
-            logger.LogInfo(nameof(CheckUpdates), "creating manifests...");
-            Manifests.CreateAllManifests();
-            logger.LogInfo(nameof(CheckUpdates), "manifests created");
-        }
-        logger.LogDebug(nameof(CheckUpdates), "update check completed");
-    }
-    
     // запускается для каждого юзера в отдельном потоке
     static void HandleUser(Socket handlerSocket)
     {
-        logger.LogInfo(nameof(HandleUser), "user connecting...  ");
+        Logger.LogInfo(nameof(HandleUser), "user connecting...  ");
         try
         {
             // тут запрос пароля заменён запросом заглушки
@@ -124,7 +84,7 @@ static class Server
             // запрос от апдейтера
             if (connectionString == "minecraft-launcher")
             {
-                logger.LogInfo(nameof(HandleUser), "incoming connection from minecraft-launcher");
+                Logger.LogInfo(nameof(HandleUser), "incoming connection from minecraft-launcher");
                 handlerSocket.SendPackage("minecraft-launcher OK");
                 // обработка запросов
                 while (true)
@@ -134,14 +94,17 @@ static class Server
                         string request = handlerSocket.GetPackage().BytesToString();
                         switch (request)
                         {
+                            case "requesting latest launcher version":
+                                handlerSocket.SendPackage("latest launcher version is "+LatestLauncherVersion);
+                                break;
                             case "requesting launcher update":
-                                logger.LogInfo(nameof(HandleUser), "updater requested launcher update");
+                                Logger.LogInfo(nameof(HandleUser), "updater requested launcher update");
                                 // ReSharper disable once InconsistentlySynchronizedField
                                 fsp.UploadFile(Path.Concat(shared_dir, "minecraft-launcher.exe"));
                                 break;
                             case "requesting file download":
                                 var filePath = handlerSocket.GetPackage().BytesToString();
-                                logger.LogInfo(nameof(HandleUser), $"updater requested file {filePath}");
+                                Logger.LogInfo(nameof(HandleUser), $"updater requested file {filePath}");
                                 if(filePath.EndsWith("manifest.dtsod"))
                                     lock (Manifests.manifestLocker)
                                     {
@@ -159,18 +122,18 @@ static class Server
             }
             // неизвестный юзер
 
-            logger.LogWarn(nameof(HandleUser),$"invalid connection string: '{connectionString}'");
+            Logger.LogWarn(nameof(HandleUser),$"invalid connection string: '{connectionString}'");
             handlerSocket.SendPackage("invalid connection string");
         }
         catch (Exception ex)
         {
-            logger.LogWarn(nameof(HandleUser), ex);
+            Logger.LogWarn(nameof(HandleUser), ex);
         }
         finally
         {
             if (handlerSocket.Connected) handlerSocket.Shutdown(SocketShutdown.Both);
             handlerSocket.Close();
-            logger.LogInfo(nameof(HandleUser), "user disconnected");
+            Logger.LogInfo(nameof(HandleUser), "user disconnected");
         }
     }
 
